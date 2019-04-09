@@ -197,6 +197,8 @@ int main(int argc, char** argv)
     cv::Point dumM;
     cv::Point dumm;
     std::vector<cv::Point> dumM_range;
+    std::vector<cv::Point> template_match;
+    std::vector<cv::Point> clusters;
     double dummM;
     double dummm;
 
@@ -230,7 +232,8 @@ int main(int argc, char** argv)
     orb(src, cv::Mat(), keypoints0, descriptors0, false);
 //    Dbrisk(src, cv::Mat(), keypoints0, descriptors0, false );
 //
-    draw_keypoint("src_keypoint", src, keypoints0);
+    draw_keypoint(src, keypoints0);
+    show_img("src_keypoint", src);
 
     srcM = cv::imread("GC120_head.png");
     cv::resize(srcM,srcM,size,0.1,0.1);
@@ -285,9 +288,9 @@ int main(int argc, char** argv)
 
 
 
-        draw_keypoint("img_keypoint", gray, keypoints1);
+        draw_keypoint(gray, keypoints1);
 
-
+        show_img("img_keypoint", gray);
 
 
         //        cv::cvtColor( src, src, CV_RGB2GRAY );
@@ -298,6 +301,59 @@ int main(int argc, char** argv)
 
 
         if (descriptors0.rows > 0 && descriptors1.rows > 0) {
+
+            cv::matchTemplate(gray, srcM, dummy, cv::TM_CCOEFF_NORMED);
+            cv::normalize( dummy, dummy, 0, 1, cv::NORM_MINMAX, -1, cv::Mat() );
+            for(int i =0; i <dummy.rows;i++)
+            {
+                for(int j = 0; j <dummy.cols; j++)
+                {
+                    if (dummy.at<float>(i,j)  > 0.98)
+                        dumM_range.push_back(cv::Point(j,i));
+                }
+            }
+//
+            cv::minMaxLoc(dummy, &dummm, &dummM,&dumm, &dumM,cv::Mat());
+            printf("    %f   %d,%d",dummM,dumM.x ,dumM.y);
+            cv::cvtColor(dummy,dummy, cv::COLOR_GRAY2RGB);
+
+//            for(int i = 0; i < dumM_range.size(); i++)
+//                cv::circle(dummy,dumM_range[i],5, cv::Scalar(0, 0, 255),2);
+//
+
+            simple_cluster(dumM_range, clusters, 100);
+
+
+//            cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 10, 0.01);
+            //cv::kmeans(dumM_range, 5, clusters, termcrit, 5, cv::KMEANS_RANDOM_CENTERS);
+
+            for(int i = 0; i < clusters.size(); i++)
+                cv::circle(dummy,clusters[i],10, cv::Scalar(0, 255, 0),2);
+
+            cv::imshow("dummy", dummy);
+
+            std::vector<cv::Mat> roi;
+
+            for(int i = 0; i < clusters.size(); i++)
+            {
+                cv::Rect rect(clusters[i].x, clusters[i].y, srcM.cols, srcM.rows);
+
+                draw_rectangle(gray, cv::Point2f(clusters[i].x + srcM.cols/2, clusters[i].y + srcM.rows/2), cv::Point2f(rect.x,rect.y), cv::Point2f(rect.x + rect.width,rect.y + rect.height));
+
+            }
+
+            show_img("img_keypoint", gray);
+
+            /*cv::Rect rect(int(clusters.x - 160 < 0 ? 0 : clusters.x - 160), int(mean_rows - 120 < 0 ? 0 : mean_rows - 120),
+                          int(clusters.x + 160 > 640 ? 640 - clusters.x + 160 : 320),
+                          int(mean_rows + 120 > 480 ? 480 - mean_rows + 120 : 240));*/
+
+
+
+            /*draw_rectangle(img_matches, cv::Point2f(src.cols + srcM.cols/2 + dumM.x, srcM.rows/2 + dumM.y),
+                           cv::Point2f(src.cols + dumM.x, dumM.y),
+                           cv::Point2f(src.cols + srcM.cols + dumM.x, srcM.rows + dumM.y));*/
+
 
             matcher->match(descriptors0, descriptors1, matches);
 //        matcherf.match( descriptors0, descriptors1, matches  );
@@ -355,28 +411,7 @@ int main(int argc, char** argv)
 
 
 
-            cv::matchTemplate(gray, srcM, dummy, cv::TM_CCOEFF_NORMED);
-//            cv::normalize( dummy, dummy, 0, 1, cv::NORM_MINMAX, -1, cv::Mat() );
-            for(int i =0; i <dummy.rows;i++)
-            {
-                for(int j = 0; j <dummy.cols; j++)
-                {
-                    if (dummy.at<float>(i,j)  > 0.4)
-                        dumM_range.push_back(cv::Point(j,i));
-                }
-            }
-//
-            cv::minMaxLoc(dummy, &dummm, &dummM,&dumm, &dumM,cv::Mat());
-            printf("    %f   %d,%d",dummM,dumM.x ,dumM.y);
-            cv::cvtColor(dummy,dummy, cv::COLOR_GRAY2RGB);
 
-            for(int i = 0; i < dumM_range.size(); i++)
-                cv::circle(dummy,dumM_range[i],10, cv::Scalar(0, 0, 255),10);
-
-            cv::imshow("dummy", dummy);
-            draw_rectangle(img_matches, cv::Point2f(src.cols + srcM.cols/2 + dumM.x, srcM.rows/2 + dumM.y),
-                           cv::Point2f(src.cols + dumM.x, dumM.y),
-                           cv::Point2f(src.cols + srcM.cols + dumM.x, srcM.rows + dumM.y));
             /*draw_rectangle(img_matches, cv::Point2f(src.cols + srcM.cols/2 + dumm.x, srcM.rows/2 + dumm.y),
                            cv::Point2f(src.cols + dumm.x, dumm.y),
                            cv::Point2f(src.cols + srcM.cols + dumm.x, srcM.rows + dumm.y));
@@ -390,6 +425,7 @@ int main(int argc, char** argv)
         free(img1.data);
         good_matches.clear();
         dumM_range.clear();
+        clusters.clear();
         descriptors1.release();
         matches.clear();
 //        free(gray.data);

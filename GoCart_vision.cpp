@@ -21,6 +21,72 @@ namespace cv
 }
 
 
+void simple_cluster(std::vector<cv::Point> &data, std::vector<cv::Point> &clusters,
+        int dist_threshold = 100)
+{
+    int dist, min, min_num;
+    int sumx = 0, sumy = 0;
+    std::vector<cv::Point> temp;
+
+
+    while(data.size())
+    {
+
+        sumx = 0;
+        sumy = 0;
+
+        temp.push_back(data[0]);
+        data.erase(data.begin());
+
+        ////////make a cluster named temp
+        for(int i = 0; i < data.size(); i++) {
+
+            ///////////find the closest point
+            for (int j = 0; j < data.size(); j++) {
+                for (int k = 0; k < temp.size(); k++) {
+
+                    dist = (temp[k].x - data[j].x) * (temp[k].x - data[j].x) +
+                           (temp[k].y - data[j].y) * (temp[k].y - data[j].y);
+
+                    if (dist < dist_threshold*dist_threshold) {
+                        temp.push_back(data[j]);
+                        data.erase(data.begin() + j);
+                        j--;
+                    }
+                }
+            }
+
+            //////////push the closest point to temp
+            /*if (min < dist_threshold) {
+                min = dist_threshold;
+                temp.push_back(data[min_num]);
+                data.erase(data.begin() + min_num);
+                i--;
+            }*/
+        }
+
+        //////////push a centerpoint of the cluster 'temp' to 'clusters'
+        for(int i=0;i < temp.size();i++)
+        {
+            sumx += temp[i].x;
+            sumy += temp[i].y;
+        }
+
+        clusters.push_back(cv::Point(sumx/temp.size(), sumy/temp.size()));
+
+    }
+
+
+}
+
+
+void show_img(const std::string& winname, cv::Mat &img)
+{
+    cv::namedWindow(winname, cv::WINDOW_NORMAL);
+    cv::imshow(winname, img);
+}
+
+
 void img_capture(cv::Mat &img, int pressed_key)
 {
     const time_t t = time(NULL);
@@ -37,14 +103,11 @@ void img_capture(cv::Mat &img, int pressed_key)
         s_time = std::to_string(i_time) + ".png";
         cv::imwrite(s_time, img);
     }
-
-
 }
 
 
 
-void draw_keypoint(const std::string& winname, cv::Mat &img,
-        std::vector< cv::KeyPoint > keypoints, int scale_factor = 1)
+void draw_keypoint( cv::Mat &img, std::vector< cv::KeyPoint > keypoints, int scale_factor = 1)
 {
     std::vector<cv::Point2f> points;
 
@@ -55,9 +118,7 @@ void draw_keypoint(const std::string& winname, cv::Mat &img,
     for (int i(0); i < points.size(); i++) {
         cv::circle(img, points[i], 2, cv::Scalar(0, 0, 255));
     }
-    printf("\n%d", points.size());
-    cv::namedWindow(winname, cv::WINDOW_NORMAL);
-    cv::imshow(winname, img);
+    printf("\nNumber of keypoints: %d\n", points.size());
 
 }
 
@@ -120,7 +181,7 @@ void match_img(cv::Mat &src,std::vector< cv::KeyPoint > &keypoints0, cv::Mat &gr
 
     else
     {
-        printf("Matches less than 4 Found!!  %d", good_matches.size() );
+        printf("\nMatches less than 4 Found!!  %d\n", good_matches.size() );
 
         return;
 

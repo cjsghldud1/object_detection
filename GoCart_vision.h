@@ -16,11 +16,14 @@ namespace cv
 
 
 }
+void simple_cluster(std::vector<cv::Point> &data, std::vector<cv::Point> &clusters,
+                    int dist_threshold = 100);
+
+void show_img(const std::string& winname, cv::Mat &img);
 
 void img_capture(cv::Mat &img, int key);
 
-void draw_keypoint(const std::string& winname, cv::Mat &img,
-        std::vector< cv::KeyPoint > keypoints, int scale_factor = 1);
+void draw_keypoint(cv::Mat &img, std::vector< cv::KeyPoint > keypoints, int scale_factor = 1);
 
 void draw_rectangle( cv::Mat &pimg, cv::Point2f mean, cv::Point2f p1, cv::Point2f p2);
 #endif //UNTITLED3_GOCART_VISION_H
