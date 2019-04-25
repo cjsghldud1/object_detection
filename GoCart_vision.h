@@ -9,6 +9,7 @@
 
 #include <opencv2/opencv.hpp>
 #include <OpenNI.h>
+#include <list>
 
 namespace cv
 {
@@ -16,7 +17,13 @@ namespace cv
 
 
 }
-void simple_cluster(std::vector<cv::Point> &data, std::vector<cv::Point> &clusters,
+//simple_cluster backup
+/*
+void simple_cluster(std::vector<cv::Point> data, std::vector<cv::Point> &clusters,
+                    int dist_threshold = 100);
+*/
+
+void simple_cluster(std::list<cv::Point> data, std::vector<cv::Point> &clusters,
                     int dist_threshold = 100);
 
 void show_img(const std::string& winname, cv::Mat &img);
