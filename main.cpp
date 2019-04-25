@@ -21,6 +21,7 @@
 #include <OpenNI.h>
 #include <iostream>
 #include <time.h>
+#include <list>
 #include "Viewer.h"
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
@@ -117,6 +118,18 @@ int main(int argc, char** argv)
 		return 3;
 	}
 
+
+    openni::CameraSettings* camset = color.getCameraSettings();
+    openni::VideoMode cammode = color.getVideoMode();
+    openni::SensorInfo const * caminfo = device.getSensorInfo(openni::SENSOR_COLOR);
+
+    caminfo->getSupportedVideoModes();
+
+
+//    camset->setAutoWhiteBalanceEnabled(false);
+    camset->setAutoExposureEnabled(false);
+
+
     openni::VideoFrameRef color_img;
 	color.readFrame(&color_img);
 
@@ -144,7 +157,7 @@ int main(int argc, char** argv)
     cv::Mat dummy;
     cv::Mat descriptors0;
     cv::Mat descriptors1;
-
+    cv::Mat best_matches_img;
     cv::cvtColor(img1,img1, cv::COLOR_BGR2RGB);
     cv::imshow("tset",img1);
     cv::moveWindow("tset",0,0);
@@ -176,10 +189,13 @@ int main(int argc, char** argv)
 
     std::vector< cv::KeyPoint > keypoints0;
     std::vector< cv::KeyPoint > keypoints1;
+    std::vector< cv::KeyPoint > Best_keypoints0;
+    std::vector< cv::KeyPoint > Best_keypoints1;
     std::vector<cv::Point2f> points_start;
     std::vector<cv::Point2f> points_now;
     std::vector< cv::DMatch> matches;
-    std::vector<cv::DMatch> good_matches;
+
+    std::vector<cv::DMatch> Best_matches;
     time_t start, end;
     struct tm *date;
     int scale_factor = 1;
@@ -189,6 +205,9 @@ int main(int argc, char** argv)
     int max_v;
     int key;
     int count_frame = 0;
+    int good_roi;
+    int max_good_matches;
+    float mean_good_matches;
     float fps = 0;
     float mean_cols = 320;
     float mean_rows = 240;
@@ -197,6 +216,9 @@ int main(int argc, char** argv)
     cv::Point dumM;
     cv::Point dumm;
     std::vector<cv::Point> dumM_range;
+
+    std::list<cv::Point> template_match;
+    std::vector<cv::Point> clusters;
     double dummM;
     double dummm;
 
@@ -207,8 +229,7 @@ int main(int argc, char** argv)
     streams[1] = &color;
 
     cv::waitKey(0);
-    cv::namedWindow("Good Matches & Object detection", cv::WINDOW_AUTOSIZE);
-    cv::moveWindow("Good Matches & Object detection",0,0);
+
     cv::cvtColor(img1,img1, cv::COLOR_BGR2RGB);
     cv::cvtColor(img1,gray, cv::COLOR_RGB2GRAY);
     cv::destroyWindow("tset");
@@ -216,7 +237,7 @@ int main(int argc, char** argv)
 
 
 
-    src = cv::imread("GC120_front_scaled.png");
+    src = cv::imread("src_head.png");
 //    cv::cvtColor(src,src, cv::COLOR_RGB2GRAY);
 //    cv::blur( src, src, cv::Size(3,3) );
 //        cv::cvtColor(gray, gray, cv::COLOR_RGB2GRAY);
@@ -224,17 +245,44 @@ int main(int argc, char** argv)
 //        cv::GaussianBlur(gray, gray, cv::Size(3,3), 0 );
 //        cv::blur(gray, gray, cv::Size(7,7));
     cv::Size2f size(0,0);
-    cv::resize(src,src,size,0.3,0.3);
+//    cv::resize(src,src,size,0.3,0.3);
 //    GFTTdetector.detect(src, keypoints0);
 //            FASTdetector.detect(src, keypoints0);
     orb(src, cv::Mat(), keypoints0, descriptors0, false);
+
+
+/*    cv::SimpleBlobDetector::Params params;
+//    params.filterByColor = true;
+    params.filterByCircularity = true;
+    params.minCircularity = 0;
+    params.filterByConvexity = true;
+    params.minConvexity = 0;
+    params.minThreshold = 0;
+    params.maxThreshold = 255;
+    params.filterByArea = true;
+    params.minArea = 10;
+    params.filterByInertia = true;
+    params.minInertiaRatio = 0.01;
+
+
+    printf("%f %f %f", params.thresholdStep,params.minThreshold,params.maxThreshold);
+    cv::SimpleBlobDetector SBD(params);
+    SBD.detect(src,keypoints0);*/
+
+
 //    Dbrisk(src, cv::Mat(), keypoints0, descriptors0, false );
 //
     draw_keypoint("src_keypoint", src, keypoints0);
 
-    srcM = cv::imread("GC120_head.png");
-    cv::resize(srcM,srcM,size,0.1,0.1);
-    cv::imshow("srcM", srcM);
+    srcM = cv::imread("src_head.png");
+//    cv::resize(srcM,srcM,size,0.1,0.1);
+    show_img("srcM", srcM);
+
+
+//    cv::waitKey(0);
+
+
+
 
 
     time(&start);
@@ -277,7 +325,7 @@ int main(int argc, char** argv)
 
 //        GFTTdetector.detect(gray, keypoints1);
 //        FASTdetector.detect(gray, keypoints1);
-        orb(gray, cv::Mat(), keypoints1, descriptors1, false);
+//        orb(gray, cv::Mat(), keypoints1, descriptors1, false);
 //        Dbrisk(gray, cv::Mat(), keypoints1, descriptors1, false );
 //        printf("\n%d", keypoints0.size());
 //        printf("\n%d", keypoints1.size());
@@ -285,8 +333,8 @@ int main(int argc, char** argv)
 
 
 
-        draw_keypoint("img_keypoint", gray, keypoints1);
 
+//        draw_keypoint(gray, keypoints1);
 
 
 
@@ -297,58 +345,149 @@ int main(int argc, char** argv)
         cv::Size winSize(7, 7);
 
 
-        if (descriptors0.rows > 0 && descriptors1.rows > 0) {
 
-            matcher->match(descriptors0, descriptors1, matches);
-//        matcherf.match( descriptors0, descriptors1, matches  );
-            printf("\n%d", matches.size());
-            if (matches.size() > 9) {
+        cv::matchTemplate(gray, srcM, dummy, cv::TM_CCOEFF_NORMED);
+        cv::minMaxLoc(dummy, &dummm, &dummM,&dumm, &dumM,cv::Mat());
+        printf("    %f   %d,%d",dummM,dumM.x ,dumM.y);
+
+
+        if( dummM > 0.35)
+        {
+            cv::normalize(dummy, dummy, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+            for (int i = 0; i < dummy.rows; i++) {
+                for (int j = 0; j < dummy.cols; j++) {
+                    if (dummy.at<float>(i, j) > 0.90)
+                        template_match.push_back(cv::Point(j, i));
+                }
+            }
+//
+        }
+
+        cv::cvtColor(dummy,dummy, cv::COLOR_GRAY2RGB);
+
+//            for(int i = 0; i < dumM_range.size(); i++)
+//                cv::circle(dummy,dumM_range[i],5, cv::Scalar(0, 0, 255),2);
+//
+        std::vector<cv::Mat> roi;
+        if (template_match.size() > 0) {
+            simple_cluster(template_match, clusters, 100);
+
+            for(int i = 0; i < clusters.size(); i++)
+            {
+                cv::circle(dummy, clusters[i], 10, cv::Scalar(0, 255, 0), 2);
+
+                cv::Rect rect(clusters[i].x, clusters[i].y, srcM.cols, srcM.rows);
+
+                roi.push_back(gray(rect));
+
+            }
+
+        }
+
+        show_img("dummy", dummy);
+
+
+
+        show_img("img_keypoint", gray);
+        mean_good_matches = 1000;
+        max_good_matches = 0;
+        for(int i = 0; i < roi.size();i++) {
+            keypoints1.clear();
+            descriptors1.release();
+            matches.clear();
+
+            orb(roi[i], cv::Mat(), keypoints1, descriptors1, false);
+            if (descriptors0.rows > 0 && descriptors1.rows > 0) {
+                matcher->match(descriptors0, descriptors1, matches);
+            }
+
+
+            printf("\nkeypoint1: %d\n", keypoints1.size());
+            if (matches.size() > 3) {
                 double max_dist = 0;
                 double min_dist = 100;
                 double mean = 0;
+                std::vector<cv::DMatch> good_matches;
                 //-- Quick calculation of max and min distances between keypoints
-                for (int i = 0; i < descriptors0.rows; i++) {
+                for (int j = 0; j < descriptors0.rows; j++) {
                     double dist = matches[i].distance;
-                    mean += dist;
                     if (dist < min_dist) min_dist = dist;
                     if (dist > max_dist) max_dist = dist;
                 }
 
-//                printf("-- Max dist : %f \n", max_dist);
                 printf("-- Min dist : %f \n", min_dist);
-//                printf("-- Mean dist : %f \n", mean / matches.size());
-                //-- Draw only "good" matches (i.e. whose distance is less than 3*min_dist )
 
-
-                for (int i = 0; i < descriptors0.rows; i++) {
-                    if (matches[i].distance < 35) { good_matches.push_back(matches[i]); }
+                for (int k = 0; k < descriptors0.rows; k++) {
+                    if (matches[k].distance < 60) {
+                        good_matches.push_back(matches[k]);
+                        mean += matches[k].distance;
                     }
-                printf("\n%d", good_matches.size());
+                }
+
+                mean /= good_matches.size();
+
+                if (mean_good_matches > mean)
+                {
+                    Best_matches.clear();
+                    Best_keypoints0.clear();
+                    Best_keypoints1.clear();
+                    mean_good_matches = mean;
+                    Best_matches = good_matches;
+                    Best_keypoints0 = keypoints0;
+                    Best_keypoints1 = keypoints1;
+                    good_roi = i;
+                    good_matches.clear();
+                }
+
+                printf("\n mean_good_matches: %f", mean_good_matches);
             }
 
+        }
 
 
-            cv::Mat img_matches;
-            match_img(src, keypoints0,  gray, keypoints1,  good_matches, img_matches);
+
+        if (Best_matches.size() > 0)
+        {
+            printf("%d                           dfafasdfsdf",Best_matches.size());
+
+            drawMatches(src, keypoints0, roi[good_roi], Best_keypoints1,
+                        Best_matches, best_matches_img, cv::Scalar::all(-1), cv::Scalar::all(-1),
+                        std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+            show_img("feature_Matching", best_matches_img);
+            cv::waitKey(10);
+        }
+
+        if (clusters.size() > 0) {
+            draw_rectangle(gray, cv::Point2f(clusters[good_roi].x + srcM.cols / 2, clusters[good_roi].y + srcM.rows / 2),
+                           cv::Point2f(clusters[good_roi].x, clusters[good_roi].y),
+                           cv::Point2f(clusters[good_roi].x + srcM.cols, clusters[good_roi].y + srcM.rows));
+            show_img("Matching", gray);
+        }
 
 
-            mean_cols = 0;
-            mean_rows = 0;
-            for (int i = 0; i < good_matches.size(); i++)
-            {
-                //-- Get the keypoints from the good matches
-                mean_cols += keypoints1[good_matches[i].trainIdx].pt.x;
-                mean_rows += keypoints1[good_matches[i].trainIdx].pt.y;
-            }
-
-            mean_cols /= good_matches.size();
-            mean_rows /= good_matches.size();
-
-            cv::Rect rect(int(mean_cols - 160 < 0 ? 0 : mean_cols - 160), int(mean_rows - 120 < 0 ? 0 : mean_rows - 120),
-                              int(mean_cols + 160 > 640 ? 640 - mean_cols + 160 : 320),
-                              int(mean_rows + 120 > 480 ? 480 - mean_rows + 120 : 240));
-
-            draw_rectangle(img_matches, cv::Point2f(src.cols + mean_cols, mean_rows),cv::Point2f(src.cols + rect.x, rect.y),cv::Point2f(src.cols + rect.x, rect.y) + cv::Point2f(rect.width, rect.height));
+//
+//
+//            cv::Mat img_matches;
+//            match_img(src, keypoints0,  gray, keypoints1,  good_matches, img_matches);
+//
+//
+//            mean_cols = 0;
+//            mean_rows = 0;
+//            for (int i = 0; i < good_matches.size(); i++)
+//            {
+//                //-- Get the keypoints from the good matches
+//                mean_cols += keypoints1[good_matches[i].trainIdx].pt.x;
+//                mean_rows += keypoints1[good_matches[i].trainIdx].pt.y;
+//            }
+//
+//            mean_cols /= good_matches.size();
+//            mean_rows /= good_matches.size();
+//
+//            cv::Rect rect(int(mean_cols - 160 < 0 ? 0 : mean_cols - 160), int(mean_rows - 120 < 0 ? 0 : mean_rows - 120),
+//                              int(mean_cols + 160 > 640 ? 640 - mean_cols + 160 : 320),
+//                              int(mean_rows + 120 > 480 ? 480 - mean_rows + 120 : 240));
+//
+//            draw_rectangle(img_matches, cv::Point2f(src.cols + mean_cols, mean_rows),cv::Point2f(src.cols + rect.x, rect.y),cv::Point2f(src.cols + rect.x, rect.y) + cv::Point2f(rect.width, rect.height));
 
 
 
@@ -382,16 +521,20 @@ int main(int argc, char** argv)
                            cv::Point2f(src.cols + srcM.cols + dumm.x, srcM.rows + dumm.y));
 */
 
-            cv::imshow("Good Matches & Object detection", img_matches);
-            cv::moveWindow("Good Matches & Object detection", 0, 0);
+//            cv::imshow("Good Matches & Object detection", img_matches);
+//            cv::moveWindow("Good Matches & Object detection", 0, 0);
 
-        }
 
+        good_roi = 0;
         free(img1.data);
-        good_matches.clear();
+        roi.clear();
         dumM_range.clear();
+
+        template_match.clear();
+        clusters.clear();
         descriptors1.release();
         matches.clear();
+        Best_matches.clear();
 //        free(gray.data);
 
         count_frame++;
