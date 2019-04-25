@@ -216,6 +216,7 @@ int main(int argc, char** argv)
     cv::Point dumM;
     cv::Point dumm;
     std::vector<cv::Point> dumM_range;
+
     std::list<cv::Point> template_match;
     std::vector<cv::Point> clusters;
     double dummM;
@@ -285,6 +286,7 @@ int main(int argc, char** argv)
 
 
 
+
     time(&start);
     while(true) {
 
@@ -337,6 +339,8 @@ int main(int argc, char** argv)
 
         show_img("img_keypoint", gray);
 
+
+//        draw_keypoint(gray, keypoints1);
 
         //        cv::cvtColor( src, src, CV_RGB2GRAY );
         std::vector<cv::Point2f> points1;
@@ -450,6 +454,7 @@ int main(int argc, char** argv)
         {
             printf("%d                           dfafasdfsdf",Best_matches.size());
 
+
             drawMatches(src, keypoints0, roi[good_roi], Best_keypoints1,
                         Best_matches, best_matches_img, cv::Scalar::all(-1), cv::Scalar::all(-1),
                         std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
@@ -488,9 +493,6 @@ int main(int argc, char** argv)
 //                              int(mean_rows + 120 > 480 ? 480 - mean_rows + 120 : 240));
 //
 //            draw_rectangle(img_matches, cv::Point2f(src.cols + mean_cols, mean_rows),cv::Point2f(src.cols + rect.x, rect.y),cv::Point2f(src.cols + rect.x, rect.y) + cv::Point2f(rect.width, rect.height));
-
-
-
 
 
 

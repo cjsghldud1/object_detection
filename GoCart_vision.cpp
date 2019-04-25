@@ -161,6 +161,147 @@ void show_img(const std::string& winname, cv::Mat &img)
 }
 
 
+//simple_cluster backup
+/*void simple_cluster(std::vector<cv::Point> data, std::vector<cv::Point> &clusters,
+                    int dist_threshold = 100)
+{
+    int dist, min, min_num;
+    int sumx = 0, sumy = 0;
+    std::vector<cv::Point> temp;
+
+
+    while(data.size())
+    {
+
+        sumx = 0;
+        sumy = 0;
+
+        temp.push_back(data[0]);
+        data.erase(data.begin());
+
+        ////////make a cluster named temp
+        for(int i = 0; i < data.size(); i++) {
+
+            ///////////find the closest point
+            for (int j = 0; j < data.size(); j++) {
+                for (int k = 0; k < temp.size(); k++) {
+
+                    dist = (temp[k].x - data[j].x) * (temp[k].x - data[j].x) +
+                           (temp[k].y - data[j].y) * (temp[k].y - data[j].y);
+
+                    if (dist < dist_threshold*dist_threshold) {
+                        temp.push_back(data[j]);
+                        data.erase(data.begin() + j);
+                        j--;
+                        break;
+                    }
+                }
+            }
+
+//            //////////push the closest point to temp
+//            if (min < dist_threshold) {
+//                min = dist_threshold;
+//                temp.push_back(data[min_num]);
+//                data.erase(data.begin() + min_num);
+//                i--;
+//            }
+        }
+
+        //////////push a centerpoint of the cluster 'temp' to 'clusters'
+        for(int i=0;i < temp.size();i++)
+        {
+            sumx += temp[i].x;
+            sumy += temp[i].y;
+        }
+
+        clusters.push_back(cv::Point(sumx/temp.size(), sumy/temp.size()));
+        temp.clear();
+    }
+
+
+}*/
+
+void simple_cluster(std::list<cv::Point> data, std::vector<cv::Point> &clusters,
+        int dist_threshold = 100)
+{
+    int dist, min, min_num;
+    int sumx = 0, sumy = 0;
+    bool brk_flag = false;
+    cv::Point pt_data;
+    std::vector<cv::Point> temp;
+    std::list<cv::Point>::iterator iter;
+
+
+
+
+    while(data.size())
+    {
+
+        sumx = 0;
+        sumy = 0;
+
+        iter = data.begin();
+        temp.push_back(*iter);
+        data.erase(iter);
+
+        ////////make a cluster named temp
+        for(int i = 0; i < data.size(); i++) {
+
+            iter = data.begin();
+            ///////////find the closest point
+            for (int j = 0; j < data.size(); j++) {
+
+                for (int k = 0; k < temp.size(); k++) {
+                    pt_data = *iter;
+                    dist = (temp[k].x - pt_data.x) * (temp[k].x - pt_data.x) +
+                           (temp[k].y - pt_data.y) * (temp[k].y - pt_data.y);
+
+                    if (dist < dist_threshold*dist_threshold) {
+                        temp.push_back(*iter);
+                        iter = data.erase(iter);
+                        j--;
+                        brk_flag = true;
+                        break;
+                    }
+
+
+                }
+                if ( brk_flag == false)  iter++;
+                brk_flag = false;
+
+            }
+
+            //////////push the closest point to temp
+//            if (min < dist_threshold) {
+//                min = dist_threshold;
+//                temp.push_back(data[min_num]);
+//                data.erase(data.begin() + min_num);
+//                i--;
+//            }
+        }
+
+        //////////push a centerpoint of the cluster 'temp' to 'clusters'
+        for(int i=0;i < temp.size();i++)
+        {
+            sumx += temp[i].x;
+            sumy += temp[i].y;
+        }
+
+        clusters.push_back(cv::Point(sumx/temp.size(), sumy/temp.size()));
+        temp.clear();
+    }
+
+
+}
+
+
+void show_img(const std::string& winname, cv::Mat &img)
+{
+    cv::namedWindow(winname, cv::WINDOW_NORMAL);
+    cv::imshow(winname, img);
+}
+
+
 void img_capture(cv::Mat &img, int pressed_key)
 {
     const time_t t = time(NULL);
