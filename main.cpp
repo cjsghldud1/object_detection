@@ -336,8 +336,6 @@ int main(int argc, char** argv)
 
 //        draw_keypoint(gray, keypoints1);
 
-
-
         //        cv::cvtColor( src, src, CV_RGB2GRAY );
         std::vector<cv::Point2f> points1;
         std::vector<unsigned char> status;
@@ -494,28 +492,6 @@ int main(int argc, char** argv)
 
 
 
-            cv::matchTemplate(gray, srcM, dummy, cv::TM_CCOEFF_NORMED);
-//            cv::normalize( dummy, dummy, 0, 1, cv::NORM_MINMAX, -1, cv::Mat() );
-            for(int i =0; i <dummy.rows;i++)
-            {
-                for(int j = 0; j <dummy.cols; j++)
-                {
-                    if (dummy.at<float>(i,j)  > 0.4)
-                        dumM_range.push_back(cv::Point(j,i));
-                }
-            }
-//
-            cv::minMaxLoc(dummy, &dummm, &dummM,&dumm, &dumM,cv::Mat());
-            printf("    %f   %d,%d",dummM,dumM.x ,dumM.y);
-            cv::cvtColor(dummy,dummy, cv::COLOR_GRAY2RGB);
-
-            for(int i = 0; i < dumM_range.size(); i++)
-                cv::circle(dummy,dumM_range[i],10, cv::Scalar(0, 0, 255),10);
-
-            cv::imshow("dummy", dummy);
-            draw_rectangle(img_matches, cv::Point2f(src.cols + srcM.cols/2 + dumM.x, srcM.rows/2 + dumM.y),
-                           cv::Point2f(src.cols + dumM.x, dumM.y),
-                           cv::Point2f(src.cols + srcM.cols + dumM.x, srcM.rows + dumM.y));
             /*draw_rectangle(img_matches, cv::Point2f(src.cols + srcM.cols/2 + dumm.x, srcM.rows/2 + dumm.y),
                            cv::Point2f(src.cols + dumm.x, dumm.y),
                            cv::Point2f(src.cols + srcM.cols + dumm.x, srcM.rows + dumm.y));
