@@ -44,6 +44,7 @@ project(untitled3)
 set(CMAKE_CXX_STANDARD 11)
 find_package(OpenCV REQUIRED)
 
+include_directories("/usr/local/include/apriltag")
 INCLUDE_DIRECTORIES(/home/hoit/Downloads/OpenNI_2.3.0.55/Linux/OpenNI-Linux-x64-2.3.0.55/Include) #header
 #LINK_LIBRARIES( OpenNI2 ) #lib name
 link_directories(/home/hoit/Downloads/OpenNI_2.3.0.55/Linux/OpenNI-Linux-x64-2.3.0.55/Redist)   #dir. of lib.    include all below
@@ -54,4 +55,5 @@ target_link_libraries(untitled3 OpenGL) #3rd party lib
 target_link_libraries(untitled3 glut)   #3rd party lib
 target_link_libraries(untitled3 OpenNI2) #3rd party lib(normally this only, but in this case orbbec driver is needed. That is why include another dir. in /Downloads)
 target_link_libraries(untitled3 ${OpenCV_LIBS})#3rd party lib
+target_link_libraries(untitled3 apriltag)
 

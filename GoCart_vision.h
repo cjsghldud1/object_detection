@@ -33,6 +33,22 @@ void img_capture(cv::Mat &img, int key);
 void draw_keypoint(cv::Mat &img, std::vector< cv::KeyPoint > keypoints, int scale_factor = 1);
 
 void draw_rectangle( cv::Mat &pimg, cv::Point2f mean, cv::Point2f p1, cv::Point2f p2);
+
+void match3D_img(cv::Mat &src,std::vector< cv::KeyPoint > &keypoints0, cv::Mat &gray, std::vector< cv::KeyPoint > &keypoints1,
+               std::vector<cv::DMatch> &good_matches, cv::Mat &img_matches);
+
+void template_matching(cv::Mat &img_src, cv::Mat &template_src,
+        std::vector<cv::Mat> &dst, std::vector<cv::Rect> &dst_info);
+
+//void template_matching(cv::Mat &img_src, cv::Mat &template_src, std::vector<cv::Mat> &dst);
+
+void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptors0, cv::Mat &template_src,
+                      cv::Mat &roi, std::vector<cv::KeyPoint> &keypoints1, std::vector<cv::DMatch> &matches);
+
+void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptors0, cv::Mat &template_src,
+                      cv::Mat image_src, std::vector<cv::Mat> &roi, std::vector<cv::Rect> &roi_info,
+                      std::vector<cv::KeyPoint> &Best_keypoints1, std::vector<cv::DMatch> &Best_matches);
+
+
+apriltag_pose_t apriltag_matching(cv::Mat image_src, apriltag_detector_t *td );
 #endif //UNTITLED3_GOCART_VISION_H
-void match_img(cv::Mat &src,std::vector< cv::KeyPoint > &keypoints0, cv::Mat &gray, std::vector< cv::KeyPoint > &keypoints1,
-              std::vector<cv::DMatch> &good_matches, cv::Mat &img_matches);
