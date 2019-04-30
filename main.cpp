@@ -29,94 +29,98 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include "apriltag.h"
+#include <apriltag_pose.h>
+#include "tag36h11.h"
+#include "common/getopt.h"
 #include "GoCart_vision.h"
 
 
 int main(int argc, char** argv)
 {
-	openni::Status rc = openni::STATUS_OK;
+    openni::Status rc = openni::STATUS_OK;
 
-	openni::Device device;
-	openni::VideoStream depth, color;
-	const char* deviceURI = openni::ANY_DEVICE;
-	if (argc > 1)
-	{
-		deviceURI = argv[0];
-		std::cout<<"f"<<std::endl;
-	}
+    openni::Device device;
+    openni::VideoStream depth, color;
+    const char* deviceURI = openni::ANY_DEVICE;
+    if (argc > 1)
+    {
+        deviceURI = argv[0];
+        std::cout<<"f"<<std::endl;
+    }
 
-	rc = openni::OpenNI::initialize();
+    rc = openni::OpenNI::initialize();
 
-	printf("After initialization:\n%s\n", openni::OpenNI::getExtendedError());
+    printf("After initialization:\n%s\n", openni::OpenNI::getExtendedError());
     printf("%d", deviceURI);
-	std::cout<<std::endl<<deviceURI<<std::endl;
-	rc = device.open(deviceURI);
-	if (rc != openni::STATUS_OK)
-	{
-		printf("SimpleViewer: Device open failed:\n%s\n", openni::OpenNI::getExtendedError());
-		openni::OpenNI::shutdown();
-		return 1;
-	}
+    std::cout<<std::endl<<deviceURI<<std::endl;
+    rc = device.open(deviceURI);
+    if (rc != openni::STATUS_OK)
+    {
+        printf("SimpleViewer: Device open failed:\n%s\n", openni::OpenNI::getExtendedError());
+        openni::OpenNI::shutdown();
+        return 1;
+    }
 
 
 
 
 
-	rc = depth.create(device, openni::SENSOR_DEPTH);
-	if (rc == openni::STATUS_OK)
-	{
-		rc = depth.start();
-		if (rc != openni::STATUS_OK)
-		{
-			printf("SimpleViewer: Couldn't start depth stream:\n%s\n", openni::OpenNI::getExtendedError());
-			depth.destroy();
-		}
-	}
-	else
-	{
-		printf("SimpleViewer: Couldn't find depth stream:\n%s\n", openni::OpenNI::getExtendedError());
-	}
+    rc = depth.create(device, openni::SENSOR_DEPTH);
+    if (rc == openni::STATUS_OK)
+    {
+        rc = depth.start();
+        if (rc != openni::STATUS_OK)
+        {
+            printf("SimpleViewer: Couldn't start depth stream:\n%s\n", openni::OpenNI::getExtendedError());
+            depth.destroy();
+        }
+    }
+    else
+    {
+        printf("SimpleViewer: Couldn't find depth stream:\n%s\n", openni::OpenNI::getExtendedError());
+    }
 
 
 
 
 
-	rc = color.create(device, openni::SENSOR_COLOR);
-	if (rc == openni::STATUS_OK)
-	{
-		rc = color.start();
-		if (rc != openni::STATUS_OK)
-		{
-			printf("SimpleViewer: Couldn't start color stream:\n%s\n", openni::OpenNI::getExtendedError());
-			color.destroy();
-		}
-	}
-	else
-	{
-		printf("SimpleViewer: Couldn't find color stream:\n%s\n", openni::OpenNI::getExtendedError());
-	}
+    rc = color.create(device, openni::SENSOR_COLOR);
+    if (rc == openni::STATUS_OK)
+    {
+        rc = color.start();
+        if (rc != openni::STATUS_OK)
+        {
+            printf("SimpleViewer: Couldn't start color stream:\n%s\n", openni::OpenNI::getExtendedError());
+            color.destroy();
+        }
+    }
+    else
+    {
+        printf("SimpleViewer: Couldn't find color stream:\n%s\n", openni::OpenNI::getExtendedError());
+    }
 
 
 
 
 
-	if (!depth.isValid() || !color.isValid())
-	{
-		printf("SimpleViewer: No valid streams. Exiting\n");
-		openni::OpenNI::shutdown();
-		return 2;
-	}
+    if (!depth.isValid() || !color.isValid())
+    {
+        printf("SimpleViewer: No valid streams. Exiting\n");
+        openni::OpenNI::shutdown();
+        return 2;
+    }
 
 
 
-	SampleViewer sampleViewer("Hello World", device, depth, color);
+    SampleViewer sampleViewer("Hello World", device, depth, color);
 
-	rc = sampleViewer.init(argc, argv);
-	if (rc != openni::STATUS_OK)
-	{
-		openni::OpenNI::shutdown();
-		return 3;
-	}
+    rc = sampleViewer.init(argc, argv);
+    if (rc != openni::STATUS_OK)
+    {
+        openni::OpenNI::shutdown();
+        return 3;
+    }
 
 
     openni::CameraSettings* camset = color.getCameraSettings();
@@ -131,7 +135,7 @@ int main(int argc, char** argv)
 
 
     openni::VideoFrameRef color_img;
-	color.readFrame(&color_img);
+    color.readFrame(&color_img);
 
     /*openni::VideoMode img_param;
     img_param = color_img.getVideoMode();
@@ -141,6 +145,75 @@ int main(int argc, char** argv)
     int aa = (int)img_param.getPixelFormat();
     std::cout<< aa;*/
     //OpenNI: BGR888
+
+    getopt_t *getopt = getopt_create();
+
+    getopt_add_bool(getopt, 'h', "help", 0, "Show this help");
+    getopt_add_bool(getopt, 'd', "debug", 1, "Enable debugging output (slow)");
+    getopt_add_bool(getopt, 'q', "quiet", 0, "Reduce output");
+    getopt_add_string(getopt, 'f', "family", "tag36h11", "Tag family to use");
+    getopt_add_int(getopt, 't', "threads", "1", "Use this many CPU threads");
+    getopt_add_double(getopt, 'x', "decimate", "2.0", "Decimate input image by this factor");
+    getopt_add_double(getopt, 'b', "blur", "0.0", "Apply low-pass blur to input");
+    getopt_add_bool(getopt, '0', "refine-edges", 1, "Spend more time trying to align edges of tags");
+
+    if (!getopt_parse(getopt, argc, argv, 1) ||
+        getopt_get_bool(getopt, "help")) {
+        printf("Usage: %s [options]\n", argv[0]);
+        getopt_do_usage(getopt);
+        exit(0);
+    }
+
+    printf("1111111111");
+    // Initialize camera
+//    VideoCapture cap(CV_CAP_OPENNI);
+//    if (!cap.isOpened()) {
+//        cerr << "Couldn't open video capture device" << endl;
+//        return -1;
+//    }
+
+
+
+
+    // Initialize tag detector with options
+    apriltag_family_t *tf = nullptr;
+    const char *famname = getopt_get_string(getopt, "family");
+    if (!strcmp(famname, "tag36h11")) {
+        printf("1111");
+        tf = tag36h11_create();
+    } /*else if (!strcmp(famname, "tag25h9")) {
+        tf = tag25h9_create();
+    } else if (!strcmp(famname, "tag16h5")) {
+        tf = tag16h5_create();
+    } else if (!strcmp(famname, "tagCircle21h7")) {
+        tf = tagCircle21h7_create();
+    } else if (!strcmp(famname, "tagCircle49h12")) {
+        tf = tagCircle49h12_create();
+    } else if (!strcmp(famname, "tagStandard41h12")) {
+        tf = tagStandard41h12_create();
+    } else if (!strcmp(famname, "tagStandard52h13")) {
+        tf = tagStandard52h13_create();
+    } else if (!strcmp(famname, "tagCustom48h12")) {
+        tf = tagCustom48h12_create();
+    }*/ else {
+        printf("Unrecognized tag family name. Use e.g. \"tag36h11\".\n");
+        exit(-1);
+    }
+
+    printf("3333333333333333333");
+    apriltag_detector_t *td = apriltag_detector_create();
+    apriltag_detector_add_family(td, tf);
+    td->quad_decimate = getopt_get_double(getopt, "decimate");
+    td->quad_sigma = getopt_get_double(getopt, "blur");
+    td->nthreads = getopt_get_int(getopt, "threads");
+    td->debug = getopt_get_bool(getopt, "debug");
+    td->refine_edges = getopt_get_bool(getopt, "refine-edges");
+
+
+    apriltag_pose_t pose;
+////////////////////////////////////////////////////////
+
+
 
 
     auto *colorPix = new openni::RGB888Pixel[color_img.getHeight()*color_img.getWidth()];
@@ -153,11 +226,14 @@ int main(int argc, char** argv)
     cv::Mat cimg;
     cv::Mat oimg;
     cv::Mat gray;
-    cv::Mat roi;
     cv::Mat dummy;
     cv::Mat descriptors0;
-    cv::Mat descriptors1;
+
     cv::Mat best_matches_img;
+
+    std::vector<cv::Mat> roi;
+    std::vector<cv::Rect> roi_info;
+
     cv::cvtColor(img1,img1, cv::COLOR_BGR2RGB);
     cv::imshow("tset",img1);
     cv::moveWindow("tset",0,0);
@@ -195,32 +271,15 @@ int main(int argc, char** argv)
     std::vector<cv::Point2f> points_now;
     std::vector< cv::DMatch> matches;
 
-    std::vector<cv::DMatch> Best_matches;
+
     time_t start, end;
-    struct tm *date;
-    int scale_factor = 1;
-    int changedIndex;
-    int min_uv;
-    int max_u;
-    int max_v;
     int key;
+    int old_key;
     int count_frame = 0;
-    int good_roi;
-    int max_good_matches;
-    float mean_good_matches;
+
     float fps = 0;
-    float mean_cols = 320;
-    float mean_rows = 240;
     double ftime_diff;
 
-    cv::Point dumM;
-    cv::Point dumm;
-    std::vector<cv::Point> dumM_range;
-
-    std::list<cv::Point> template_match;
-    std::vector<cv::Point> clusters;
-    double dummM;
-    double dummm;
 
 
     openni::VideoStream **streams;
@@ -290,21 +349,17 @@ int main(int argc, char** argv)
     time(&start);
     while(true) {
 
+        old_key = key;
         key = cv::waitKey(1);
-
-//        color_img.release();
+        if (key == -1)
+            key = old_key;
+        printf("%d",key);
         color.readFrame(&color_img);
-
 
 
         colorPix = new openni::RGB888Pixel[color_img.getHeight() * color_img.getWidth()];
         memcpy(colorPix, color_img.getData(), color_img.getHeight() * color_img.getWidth() * sizeof(uint8_t) * 3);
         img1.data = (uchar *) colorPix;
-//        free(colorPix);
-
-
-
-
 
 
         cv::cvtColor(img1, gray, cv::COLOR_BGR2RGB);
@@ -317,12 +372,7 @@ int main(int argc, char** argv)
 //        cv::medianBlur(gray, gray, 3);
 //        cv::GaussianBlur(gray, gray, cv::Size(3,3), 0 );
 //        cv::blur(gray, gray, cv::Size(7,7));
-        cv::cvtColor(img1, img1, cv::COLOR_BGR2RGB);
 //        cv::bilateralFilter(img1, gray,9,75,75);
-
-
-
-
 
 
 //        GFTTdetector.detect(gray, keypoints1);
@@ -340,60 +390,40 @@ int main(int argc, char** argv)
         show_img("img_keypoint", gray);
 
 
-//        draw_keypoint(gray, keypoints1);
-
-        //        cv::cvtColor( src, src, CV_RGB2GRAY );
-        std::vector<cv::Point2f> points1;
-        std::vector<unsigned char> status;
-        std::vector<float> errr;
-        cv::Size winSize(7, 7);
-
-
-
-        cv::matchTemplate(gray, srcM, dummy, cv::TM_CCOEFF_NORMED);
-        cv::minMaxLoc(dummy, &dummm, &dummM,&dumm, &dumM,cv::Mat());
-        printf("    %f   %d,%d",dummM,dumM.x ,dumM.y);
-
-
-        if( dummM > 0.35)
-        {
-            cv::normalize(dummy, dummy, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
-            for (int i = 0; i < dummy.rows; i++) {
-                for (int j = 0; j < dummy.cols; j++) {
-                    if (dummy.at<float>(i, j) > 0.90)
-                        template_match.push_back(cv::Point(j, i));
-                }
-            }
-//
+        if (key == (int) 'm') {
+            printf("\n\nTEMPLATE+FEATURE\n");
+            template_matching(gray, srcM, roi, roi_info);
+            feature_matching(keypoints0, descriptors0, srcM, gray, roi, roi_info, keypoints1, matches);
         }
-
-        cv::cvtColor(dummy,dummy, cv::COLOR_GRAY2RGB);
-
-//            for(int i = 0; i < dumM_range.size(); i++)
-//                cv::circle(dummy,dumM_range[i],5, cv::Scalar(0, 0, 255),2);
-//
-        std::vector<cv::Mat> roi;
-        if (template_match.size() > 0) {
-            simple_cluster(template_match, clusters, 100);
-
-            for(int i = 0; i < clusters.size(); i++)
-            {
-                cv::circle(dummy, clusters[i], 10, cv::Scalar(0, 255, 0), 2);
-
-                cv::Rect rect(clusters[i].x, clusters[i].y, srcM.cols, srcM.rows);
-
-                roi.push_back(gray(rect));
-
-            }
+        else if (key == (int) 'a') {
+            printf("\n\nAPRILTAG_MATCHING\n");
+            pose = apriltag_matching(gray, td);
+            if (pose.t != nullptr)
+                printf("X: %lf \nY: %lf \nZ: %lf\n", pose.t->data[0]*1000,pose.t->data[1]*1000,pose.t->data[2]*1000);
+        }
+        else if (key == (int) 't') {
+            printf("\n\nTEMPLATE MATCHING\n");
+            template_matching(gray, srcM, roi, roi_info);
+        }
+        else if(key == (int)'f') {
+            printf("\n\nFEATURE MATCHING\n");
+            feature_matching(keypoints0, descriptors0, srcM, gray, keypoints1, matches);
+        }
+        else if(key == 27) {
+            printf("\nGOOD-BYE\n");
+            break;
+        }
+        else{
+            printf("/////////////////////////////////\n");
+            printf("////  a: apriltag_matching   ////\n");
+            printf("////  t: template_matching   ////\n");
+            printf("////  f: feature_matching    ////\n");
+            printf("////  m: template + feature  ////\n");
+            printf("/////////////////////////////////\n");
 
         }
 
-        show_img("dummy", dummy);
-
-
-
-        show_img("img_keypoint", gray);
-        mean_good_matches = 1000;
+         /*mean_good_matches = 1000;
         max_good_matches = 0;
         for(int i = 0; i < roi.size();i++) {
             keypoints1.clear();
@@ -455,7 +485,7 @@ int main(int argc, char** argv)
             printf("%d                           dfafasdfsdf",Best_matches.size());
 
 
-            drawMatches(src, keypoints0, roi[good_roi], Best_keypoints1,
+            drawMatches(srcM, keypoints0, roi[good_roi], Best_keypoints1,
                         Best_matches, best_matches_img, cv::Scalar::all(-1), cv::Scalar::all(-1),
                         std::vector<char>(), cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
             show_img("feature_Matching", best_matches_img);
@@ -467,27 +497,23 @@ int main(int argc, char** argv)
                            cv::Point2f(clusters[good_roi].x, clusters[good_roi].y),
                            cv::Point2f(clusters[good_roi].x + srcM.cols, clusters[good_roi].y + srcM.rows));
             show_img("Matching", gray);
-        }
+        }*/
 
 
-
-
-        good_roi = 0;
         free(img1.data);
+        gray.release();
         roi.clear();
-        dumM_range.clear();
-        template_match.clear();
-        clusters.clear();
-        descriptors1.release();
+        roi_info.clear();
+        keypoints1.clear();
         matches.clear();
-        Best_matches.clear();
+
 //        free(gray.data);
 
         count_frame++;
         time(&end);
         ftime_diff = difftime(end,start);
         fps = count_frame/ftime_diff;
-        printf("\nEnd of show  \t\t\t\t\t  %lf\n", fps);
+        printf("\nControl loop Rate: \t\t\t\t\t  %lf\n\n\n\n", fps);
 
 
     }
@@ -495,7 +521,108 @@ int main(int argc, char** argv)
 
 
 
-	sampleViewer.run();
+    /*while(true) {
+
+        key = cv::waitKey(1);
+        if (key == 1048675) // which means 'c'
+        {
+            printf("img_captured!");
+            time_t t = time(NULL);
+            date = localtime(&t);
+            i_time = date->tm_hour * 10000 + date->tm_min * 100 + date->tm_sec;
+            s_time = std::to_string(i_time)+ ".png";
+            cv::imwrite(s_time, gray);
+        }
+
+
+//        color_img.release();
+        color.readFrame(&color_img);
+
+        rc = openni::OpenNI::waitForAnyStream(streams, 2, &changedIndex);
+        if (rc != openni::STATUS_OK)
+        {
+            printf("Wait failed\n");
+            exit(0);
+        }
+
+
+        tmp = gray.clone();
+
+        cv::blur( tmp, tmp, cv::Size(3,3) );
+
+        colorPix = new openni::RGB888Pixel[color_img.getHeight() * color_img.getWidth()];
+        memcpy(colorPix, color_img.getData(), color_img.getHeight() * color_img.getWidth() * sizeof(uint8_t) * 3);
+        img1.data = (uchar *) colorPix;
+//        free(colorPix);
+        cv::cvtColor(img1,img1, cv::COLOR_BGR2RGB);
+        cv::cvtColor(img1,gray, cv::COLOR_RGB2GRAY);
+
+        cv::blur( tmp, tmp, cv::Size(3,3) );
+        cv::blur( img1, img1, cv::Size(3,3) );
+
+
+//        GFTTdetector.detect(tmp, keypoints0);
+//        FASTdetector.detect(tmp, keypoints0);
+        orb( tmp, cv::Mat(), keypoints0, descriptors0 );
+
+
+        points_start.clear();
+        for (int i(0); i < keypoints0.size(); i++) {
+            points_start.push_back(keypoints0[i].pt * scale_factor);
+        }
+
+        points_now = points_start;
+
+//            std::cout << "Keypoint size " << keypoints0.size() << std::endl;
+
+        std::vector<cv::Point2f> points1;
+        std::vector<unsigned char> status;
+        std::vector<float> errr;
+        cv::Size winSize(7, 7);
+        cv::TermCriteria termcrit = cv::TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, 10, 0.01);
+
+        if (points_now.size()) {
+            cv::calcOpticalFlowPyrLK(tmp, gray, points_now, points1, status, errr, winSize, 3, termcrit, 0, 1e-3f);
+            matcher->match(descriptors0, descriptors1, matches);
+        }
+        points_now.clear();
+        std::vector<cv::Point2f> points_tmp(points_start);
+        points_start.clear();
+
+        max_u = tmp.cols - min_uv;
+        max_v = tmp.rows - min_uv;
+        for (int i = 0; i < status.size(); i++) {
+            cv::Point2f &pt = points1[i];
+            if (status[i] != 0
+                && pt.x > min_uv
+                && pt.y > min_uv
+                && pt.x < max_u
+                && pt.y < max_v) {
+                points_start.push_back(points_tmp[i]);
+                points_now.push_back(pt);
+            }
+        }
+
+        cimg = gray.clone();
+        cv::imshow("oimg", img1);
+        free(img1.data);
+//        free(gray.data);
+
+        cv::cvtColor( cimg, cimg, CV_GRAY2BGR );
+        for (int i(0); i < points_start.size(); i++) {
+            cv::circle(cimg, points_now[i], 2, cv::Scalar(0, 0, 255));
+            cv::line(cimg, points_now[i], points_start[i], cv::Scalar(0, 255, 255));
+        }
+
+
+        cv::imshow("cimg", cimg);
+
+        printf("\nEnd of show\n");
+    }*/
+
+
+
+    sampleViewer.run();
 
 
 
