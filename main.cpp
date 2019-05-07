@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 
 
 //    camset->setAutoWhiteBalanceEnabled(false);
-    camset->setAutoExposureEnabled(false);
+    camset->setAutoExposureEnabled(true);
 
 
     openni::VideoFrameRef color_img;
@@ -392,8 +392,10 @@ int main(int argc, char** argv)
 
         if (key == (int) 'm') {
             printf("\n\nTEMPLATE+FEATURE\n");
+
             template_matching(gray, srcM, roi, roi_info);
             feature_matching(keypoints0, descriptors0, srcM, gray, roi, roi_info, keypoints1, matches);
+
         }
         else if (key == (int) 'a') {
             printf("\n\nAPRILTAG_MATCHING\n");

@@ -10,6 +10,7 @@
 #include <apriltag_pose.h>
 #include "tag36h11.h"
 #include "common/getopt.h"
+#include <opencv2/ml/ml.hpp>
 
 namespace cv
 {
@@ -23,6 +24,14 @@ namespace cv
         dst.create(size, type );
     }
 }
+
+
+void show_img(const std::string& winname, cv::Mat &img)
+{
+    cv::namedWindow(winname, cv::WINDOW_NORMAL);
+    cv::imshow(winname, img);
+}
+
 
 //simple_cluster backup
 /*void simple_cluster(std::vector<cv::Point> data, std::vector<cv::Point> &clusters,
@@ -164,15 +173,151 @@ void simple_cluster(std::list<cv::Point> data, std::vector<cv::Point> &clusters,
 
 
 
-
-
-
-
-void show_img(const std::string& winname, cv::Mat &img)
+void labeling(cv::Mat src, std::vector<cv::Point> &labels)
 {
-    cv::namedWindow(winname, cv::WINDOW_NORMAL);
-    cv::imshow(winname, img);
+    unsigned char *src_data = src.datastart;
+    const int max_label = 1000;
+    int eq_table[max_label][2] = {{0,}};
+    int big_label, sml_label;
+    int big_eq, sml_eq;
+    int label = 1;
+
+
+    for(int i = 0; i < src.rows; i++){
+        src.at<float>(i, 0) = 0;
+        src.at<float>(i, src.cols-1) = 0;
+    }
+    for(int j = 0; j < src.cols; j++) {
+        src.at<float>(0, j) = 0;
+        src.at<float>(src.rows-1, j) = 0;
+
+    }
+
+
+    for(int i = 1; i < src.rows-1; i++){
+        for(int j = 1; j < src.cols-1; j++){
+
+            auto data = src.at<float>(i, j) ;
+            auto data1 = src.at<float>(i-1, j) ;
+            auto data2 = src.at<float>(i, j-1) ;
+
+            if (src.at<float>(i, j) == 255){
+                if(src.at<float>(i-1, j) != 0 && src.at<float>(i, j-1) !=0) {
+                    if (src.at<float>(i-1, j) == src.at<float>(i, j-1))
+                        src.at<float>(i, j) = src.at<float>(i-1, j);
+                    else {
+                        big_label = src.at<float>(i-1, j) > src.at<float>(i, j-1)
+                                                                        ? src.at<float>(i-1, j)
+                                                                        : src.at<float>(i, j-1);
+                        sml_label = src.at<float>(i-1, j) < src.at<float>(i, j-1)
+                                                                        ? src.at<float>(i-1, j)
+                                                                        : src.at<float>(i, j-1);
+                        src.at<float>(i, j) = sml_label;
+
+                        big_eq = eq_table[big_label][1] > eq_table[sml_label][1] ? eq_table[big_label][1]
+                                                                                 : eq_table[sml_label][1];
+                        sml_eq = eq_table[big_label][1] < eq_table[sml_label][1] ? eq_table[big_label][1]
+                                                                                 : eq_table[sml_label][1];
+                        eq_table[eq_table[big_eq][1]][1] = sml_eq;
+                    }
+
+                }
+                else if(src.at<float>(i-1, j) != 0)
+                    src.at<float>(i, j) = src.at<float>(i-1, j);
+                else if(src.at<float>(i, j-1) != 0)
+                    src.at<float>(i, j) = src.at<float>(i, j-1);
+                else{
+                    label++;
+                    src.at<float>(i, j) = label;
+                    eq_table[label][0] = label;
+                    eq_table[label][1] = label;
+                }
+            }
+            else
+                continue;
+        }
+    }
+
+    int temp;
+    for(int i = 1; i < label; i++)
+    {
+        temp = eq_table[i][1];
+        if (temp != eq_table[i][0])
+            eq_table[i][1] = eq_table[temp][1];
+    }
+
+    int *hash = new int[label + 1];
+    memset(hash, 0, sizeof(int)*(label + 1));
+
+    for(int i = 1; i<=label;i++)
+     hash[eq_table[i][1]] = eq_table[i][1];
+
+    int label_cnt = 1;
+    for(int i = 1; i<=label;i++)
+        if(hash[i]  != 0)
+            hash[i] = label_cnt++;
+
+    for(int i=1; i <=label; i++)
+        eq_table[i][1] = hash[eq_table[i][1]];
+
+    free(hash);
+
+    cv::Mat dst( src.rows, src.cols,CV_8UC3);
+    int idx;
+
+
+
+    for(int i = 0; i < src.rows; i++){
+        for(int j = 0; j < src.cols; j++) {
+            if( src.at<float>(i, j) > 0 ){
+                idx =  src.at<float>(i, j);
+                src.at<float>(i, j) = eq_table[idx][1];
+                srand(eq_table[idx][1]);
+                dst.at<cv::Vec3b>(i,j)[0] = rand()%256;
+                dst.at<cv::Vec3b>(i,j)[1] = rand()%256;
+                dst.at<cv::Vec3b>(i,j)[2] = rand()%256;
+            }
+            else{
+                dst.at<cv::Vec3b>(i,j)[0] = 0;
+                dst.at<cv::Vec3b>(i,j)[1] = 0;
+                dst.at<cv::Vec3b>(i,j)[2] = 0;
+            }
+
+        }
+    }
+
+    if (label_cnt !=0) {
+        class center_points {
+        public:
+            int cnt = 0;
+            cv::Point sumPoints;
+        };
+
+        center_points center_points[label_cnt];
+        for (int i = 0; i < src.rows; i++) {
+            for (int j = 0; j < src.cols; j++) {
+
+                if (src.at<float>(i, j) != 0) {
+                    center_points[int(src.at<float>(i, j))].cnt++;
+                    center_points[int(src.at<float>(i, j))].sumPoints += cv::Point(j, i);
+                }
+            }
+        }
+
+        for (int i = 1; i < label_cnt; i++) {
+            labels.push_back(cv::Point(center_points[i].sumPoints.x / center_points[i].cnt,
+                                       center_points[i].sumPoints.y / center_points[i].cnt));
+            cv::circle(dst,labels.back(),3, cv::Scalar(0, 0, 255),3);
+        }
+    }
+
+    cv::imshow("debugging",dst);
+//    show_img("debugging",dst);
+    show_img("debugging2",src);
+
 }
+
+
 
 
 
@@ -296,52 +441,50 @@ void match3D_img(cv::Mat &src,std::vector< cv::KeyPoint > &keypoints0, cv::Mat &
 }
 
 
-
-
-
-
-void template_matching(cv::Mat &image_src, cv::Mat &template_src, std::vector<cv::Mat> &dst,
+void template_matching(cv::Mat &image_src, cv::Mat template_src, std::vector<cv::Mat> &dst,
                        std::vector<cv::Rect> &dst_info)
 {
     cv::Mat matching_result_img;
+    cv::Mat scaled;
     std::list<cv::Point> good_match;
     std::vector<cv::Point> clusters;
     cv::Point max_pnt;
     cv::Point min_pnt;
+
     double maxval;
     double minval;
 
-    cv::matchTemplate(image_src, template_src, matching_result_img, cv::TM_CCOEFF_NORMED);
-    cv::minMaxLoc(matching_result_img, &minval, &maxval,&min_pnt, &max_pnt,cv::Mat());
-    printf("    %f   %d,%d",maxval,max_pnt.x ,max_pnt.y);
+    for(int i = 1; i <= 2 ; i++) {
+        cv::resize(template_src, scaled, cv::Size(),1.0/i,1.0/i);
+        cv::matchTemplate(image_src, scaled, matching_result_img, cv::TM_CCOEFF_NORMED);
+        cv::minMaxLoc(matching_result_img, &minval, &maxval, &min_pnt, &max_pnt, cv::Mat());
+        printf("    %f   %d,%d", maxval, max_pnt.x, max_pnt.y);
 
 
-    if( maxval > 0.35)
-    {
-        cv::normalize(matching_result_img, matching_result_img, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
-        for (int i = 0; i < matching_result_img.rows; i++) {
-            for (int j = 0; j < matching_result_img.cols; j++) {
-                if (matching_result_img.at<float>(i, j) > 0.90)
-                    good_match.push_back(cv::Point(j, i));
+        if (maxval > 0.30) {
+            cv::normalize(matching_result_img, matching_result_img, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+            for (int i = 0; i < matching_result_img.rows; i++) {
+                for (int j = 0; j < matching_result_img.cols; j++) {
+                    if (matching_result_img.at<float>(i, j) > 0.90) {
+                        matching_result_img.at<float>(i, j) = 255;
+                        good_match.push_back(cv::Point(j, i));
+                    } else matching_result_img.at<float>(i, j) = 0;
+
+                }
+
             }
+//
+
+            labeling(matching_result_img, clusters);
         }
-//
-    }
 
-    cv::cvtColor(matching_result_img,matching_result_img, cv::COLOR_GRAY2RGB);
-
-//            for(int i = 0; i < dumM_range.size(); i++)
-//                cv::circle(dummy,dumM_range[i],5, cv::Scalar(0, 0, 255),2);
-//
-
-    if (good_match.size() > 0) {
-        simple_cluster(good_match, clusters, 100);
+        show_img("matching_result_img", matching_result_img);
 
         for(int i = 0; i < clusters.size(); i++)
         {
             cv::circle(matching_result_img, clusters[i], 10, cv::Scalar(0, 255, 0), 2);
 
-            cv::Rect temp(clusters[i].x, clusters[i].y, template_src.cols, template_src.rows);
+            cv::Rect temp(clusters[i].x, clusters[i].y, scaled.cols, scaled.rows);
 
             dst_info.push_back(temp);
 
@@ -349,9 +492,33 @@ void template_matching(cv::Mat &image_src, cv::Mat &template_src, std::vector<cv
 
         }
 
+        matching_result_img.release();
+        scaled.release();
     }
 
-    show_img("template_matching_result", matching_result_img);
+
+//    cv::cvtColor(matching_result_img,matching_result_img, cv::COLOR_GRAY2RGB);
+//
+//
+////
+//    if (good_match.size() > 0) {
+//
+//        simple_cluster(good_match, clusters, 100);
+//
+//        for(int i = 0; i < clusters.size(); i++)
+//        {
+//            cv::circle(matching_result_img, clusters[i], 10, cv::Scalar(0, 255, 0), 2);
+//
+//            cv::Rect temp(clusters[i].x, clusters[i].y, template_src.cols, template_src.rows);
+//
+//            dst_info.push_back(temp);
+//
+//            dst.push_back(image_src(temp));
+//
+//        }
+//
+//    }
+
 
 
 
@@ -537,7 +704,7 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
             printf("-- Min dist : %f \n", min_dist);
 
             for (int k = 0; k < descriptors0.rows; k++) {
-                if (matches[k].distance < 60) {
+                if (matches[k].distance < 50) {
                     good_matches.push_back(matches[k]);
                     mean += matches[k].distance;
                 }
@@ -545,7 +712,7 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
 
             mean /= good_matches.size();
 
-            if (mean_good_matches > mean)
+            if (mean_good_matches > mean && good_matches.size() > 10)
             {
                 Best_matches.clear();
                 Best_keypoints1.clear();
@@ -663,3 +830,4 @@ apriltag_pose_t apriltag_matching(cv::Mat image_src, apriltag_detector_t *td )
 
 
 }
+

@@ -7,6 +7,8 @@
 #ifndef UNTITLED3_GOCART_VISION_H
 #define UNTITLED3_GOCART_VISION_H
 
+#include "apriltag.h"
+#include <apriltag_pose.h>
 #include <opencv2/opencv.hpp>
 #include <OpenNI.h>
 #include <list>
@@ -26,6 +28,8 @@ void simple_cluster(std::vector<cv::Point> data, std::vector<cv::Point> &cluster
 void simple_cluster(std::list<cv::Point> data, std::vector<cv::Point> &clusters,
                     int dist_threshold = 100);
 
+void labeling(cv::Mat src, std::vector<cv::Point> &labels);
+
 void show_img(const std::string& winname, cv::Mat &img);
 
 void img_capture(cv::Mat &img, int key);
@@ -37,7 +41,7 @@ void draw_rectangle( cv::Mat &pimg, cv::Point2f mean, cv::Point2f p1, cv::Point2
 void match3D_img(cv::Mat &src,std::vector< cv::KeyPoint > &keypoints0, cv::Mat &gray, std::vector< cv::KeyPoint > &keypoints1,
                std::vector<cv::DMatch> &good_matches, cv::Mat &img_matches);
 
-void template_matching(cv::Mat &img_src, cv::Mat &template_src,
+void template_matching(cv::Mat &img_src, cv::Mat template_src,
         std::vector<cv::Mat> &dst, std::vector<cv::Rect> &dst_info);
 
 //void template_matching(cv::Mat &img_src, cv::Mat &template_src, std::vector<cv::Mat> &dst);
