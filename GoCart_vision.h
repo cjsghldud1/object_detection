@@ -54,5 +54,5 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
                       std::vector<cv::KeyPoint> &Best_keypoints1, std::vector<cv::DMatch> &Best_matches);
 
 
-apriltag_pose_t apriltag_matching(cv::Mat image_src, apriltag_detector_t *td );
+void apriltag_matching(cv::Mat image_src, apriltag_detector_t *td, float tagsize, std::vector<apriltag_pose_t> &poses);
 #endif //UNTITLED3_GOCART_VISION_H

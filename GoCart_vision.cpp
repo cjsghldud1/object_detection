@@ -12,6 +12,7 @@
 #include "common/getopt.h"
 #include <opencv2/ml/ml.hpp>
 
+
 namespace cv
 {
     void Filter_anisotropic_diffusion(Mat &src, Mat &dst, float alpha, float K, int niters)
@@ -239,7 +240,7 @@ void labeling(cv::Mat src, std::vector<cv::Point> &labels)
     }
 
     int temp;
-    for(int i = 1; i < label; i++)
+    for(int i = 1; i <= label; i++)
     {
         temp = eq_table[i][1];
         if (temp != eq_table[i][0])
@@ -305,15 +306,18 @@ void labeling(cv::Mat src, std::vector<cv::Point> &labels)
         }
 
         for (int i = 1; i < label_cnt; i++) {
-            labels.push_back(cv::Point(center_points[i].sumPoints.x / center_points[i].cnt,
-                                       center_points[i].sumPoints.y / center_points[i].cnt));
-            cv::circle(dst,labels.back(),3, cv::Scalar(0, 0, 255),3);
+
+            if (center_points[i].cnt > 100 && center_points[i].cnt  < 2500) {
+                labels.push_back(cv::Point(center_points[i].sumPoints.x / center_points[i].cnt,
+                                           center_points[i].sumPoints.y / center_points[i].cnt));
+                cv::circle(dst, labels.back(), 3, cv::Scalar(0, 0, 255), 1);
+            }
         }
     }
 
-    cv::imshow("debugging",dst);
-//    show_img("debugging",dst);
-    show_img("debugging2",src);
+//    cv::imshow("debugging",dst);
+    show_img("debugging",dst);
+//    show_img("debugging2",src);
 
 }
 
@@ -462,10 +466,10 @@ void template_matching(cv::Mat &image_src, cv::Mat template_src, std::vector<cv:
 
 
         if (maxval > 0.30) {
-            cv::normalize(matching_result_img, matching_result_img, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+//            cv::normalize(matching_result_img, matching_result_img, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
             for (int i = 0; i < matching_result_img.rows; i++) {
                 for (int j = 0; j < matching_result_img.cols; j++) {
-                    if (matching_result_img.at<float>(i, j) > 0.90) {
+                    if (matching_result_img.at<float>(i, j) > 0.25) {
                         matching_result_img.at<float>(i, j) = 255;
                         good_match.push_back(cv::Point(j, i));
                     } else matching_result_img.at<float>(i, j) = 0;
@@ -478,7 +482,7 @@ void template_matching(cv::Mat &image_src, cv::Mat template_src, std::vector<cv:
             labeling(matching_result_img, clusters);
         }
 
-        show_img("matching_result_img", matching_result_img);
+//        show_img("matching_result_img", matching_result_img);
 
         for(int i = 0; i < clusters.size(); i++)
         {
@@ -522,7 +526,7 @@ void template_matching(cv::Mat &image_src, cv::Mat template_src, std::vector<cv:
 
 
 
-    show_img("img_keypoint", image_src);
+//    show_img("img_keypoint", image_src);
 
 
 }
@@ -615,7 +619,7 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
 
 
     printf("\nkeypoint1: %d\n", keypoints1.size());
-    if (matches.size() > 3) {
+    if (matches.size() > 10) {
         double max_dist = 0;
         double min_dist = 100;
         double mean = 0;
@@ -687,8 +691,8 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
         }
 
 
-        printf("\nkeypoint1: %d\n", keypoints1.size());
-        if (matches.size() > 3) {
+        printf("\nmatches: %d\n", matches.size());
+        if (matches.size() > 10) {
             float max_dist = 0;
             float min_dist = 100;
             float mean = 0;
@@ -712,7 +716,7 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
 
             mean /= good_matches.size();
 
-            if (mean_good_matches > mean && good_matches.size() > 10)
+            if (mean_good_matches > mean && good_matches.size() > 15)
             {
                 Best_matches.clear();
                 Best_keypoints1.clear();
@@ -730,7 +734,7 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
 
 
 
-    if (Best_matches.size() > 0)
+    if (!Best_matches.empty())
     {
         printf("%d                           dfafasdfsdf",Best_matches.size());
 
@@ -743,7 +747,7 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
     }
 
 
-    if (Best_matches.size() > 0) {
+    if (!Best_matches.empty()) {
         draw_rectangle(image_src, cv::Point2f(roi_info[good_roi].x + roi_info[good_roi].width / 2, roi_info[good_roi].y + roi_info[good_roi].height / 2),
                        cv::Point2f(roi_info[good_roi].x, roi_info[good_roi].y),
                        cv::Point2f(roi_info[good_roi].x + roi_info[good_roi].width, roi_info[good_roi].y + roi_info[good_roi].height));
@@ -752,7 +756,7 @@ void feature_matching(std::vector<cv::KeyPoint> &keypoints0, cv::Mat &descriptor
 }
 
 
-apriltag_pose_t apriltag_matching(cv::Mat image_src, apriltag_detector_t *td )
+void apriltag_matching(cv::Mat image_src, apriltag_detector_t *td, float tagsize, std::vector<apriltag_pose_t> &poses )
 {
     cv::Mat gray;
     apriltag_pose_t pose;
@@ -800,7 +804,7 @@ apriltag_pose_t apriltag_matching(cv::Mat image_src, apriltag_detector_t *td )
 
         apriltag_detection_info_t info;
         info.det = det;
-        info.tagsize = 0.071; // Size of square inside of dashed-line
+        info.tagsize = tagsize; // Size of square inside of dashed-line
         info.fx = 514.60723;  // Calculate with MRPT camera calib. tool
         info.fy = 512.72978;
         info.cx = 332.26685;
@@ -809,6 +813,7 @@ apriltag_pose_t apriltag_matching(cv::Mat image_src, apriltag_detector_t *td )
 
 
         double err = estimate_tag_pose(&info, &pose);
+        poses.push_back(pose);
 //        printf("X: %lf \nY: %lf \nZ: %lf\n", pose.t->data[0]*1000,pose.t->data[1]*1000,pose.t->data[2]*1000);
 
         /*for(int i = 0; i < 9; i++) {
@@ -825,8 +830,9 @@ apriltag_pose_t apriltag_matching(cv::Mat image_src, apriltag_detector_t *td )
 
 
     imshow("Tag Detections", image_src);
-    return pose;
-//        d_frame.release();
+    zarray_destroy(detections);
+    image_src.release();
+    gray.release();
 
 
 }

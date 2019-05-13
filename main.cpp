@@ -1,23 +1,5 @@
-/*****************************************************************************
-*                                                                            *
-*  OpenNI 2.x Alpha                                                          *
-*  Copyright (C) 2012 PrimeSense Ltd.                                        *
-*                                                                            *
-*  This file is part of OpenNI.                                              *
-*                                                                            *
-*  Licensed under the Apache License, Version 2.0 (the "License");           *
-*  you may not use this file except in compliance with the License.          *
-*  You may obtain a copy of the License at                                   *
-*                                                                            *
-*      http://www.apache.org/licenses/LICENSE-2.0                            *
-*                                                                            *
-*  Unless required by applicable law or agreed to in writing, software       *
-*  distributed under the License is distributed on an "AS IS" BASIS,         *
-*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  *
-*  See the License for the specific language governing permissions and       *
-*  limitations under the License.                                            *
-*                                                                            *
-*****************************************************************************/
+
+
 #include <OpenNI.h>
 #include <iostream>
 #include <time.h>
@@ -210,18 +192,14 @@ int main(int argc, char** argv)
     td->refine_edges = getopt_get_bool(getopt, "refine-edges");
 
 
-    apriltag_pose_t pose;
+    std::vector<apriltag_pose_t> poses;
 ////////////////////////////////////////////////////////
 
 
 
-
-    auto *colorPix = new openni::RGB888Pixel[color_img.getHeight()*color_img.getWidth()];
-    memcpy(colorPix, color_img.getData(), color_img.getHeight()*color_img.getWidth()*sizeof(uint8_t)*3);
-
     cv::Mat src;
     cv::Mat srcM;
-    cv::Mat img1(color_img.getHeight(), color_img.getWidth(), CV_8UC3, colorPix);
+    cv::Mat img1(color_img.getHeight(), color_img.getWidth(), CV_8UC3);
     cv::Mat tmp;
     cv::Mat cimg;
     cv::Mat oimg;
@@ -234,9 +212,7 @@ int main(int argc, char** argv)
     std::vector<cv::Mat> roi;
     std::vector<cv::Rect> roi_info;
 
-    cv::cvtColor(img1,img1, cv::COLOR_BGR2RGB);
-    cv::imshow("tset",img1);
-    cv::moveWindow("tset",0,0);
+
 
 
     cv::FlannBasedMatcher matcherf;
@@ -273,11 +249,13 @@ int main(int argc, char** argv)
 
 
     time_t start, end;
+    clock_t t;
     int key;
     int old_key;
     int count_frame = 0;
 
-    float fps = 0;
+    double FPS = 0;
+    double fps = 0;
     double ftime_diff;
 
 
@@ -287,17 +265,11 @@ int main(int argc, char** argv)
     streams[0] = &depth;
     streams[1] = &color;
 
-    cv::waitKey(0);
-
-    cv::cvtColor(img1,img1, cv::COLOR_BGR2RGB);
-    cv::cvtColor(img1,gray, cv::COLOR_RGB2GRAY);
-    cv::destroyWindow("tset");
-    printf("111111111111111111\n");
 
 
 
-    src = cv::imread("src_head.png");
-//    cv::cvtColor(src,src, cv::COLOR_RGB2GRAY);
+    src = cv::imread("src_head_cut.png");
+//    cv::cvtColor(src,src, cv::COLOR_BGR2GRAY);
 //    cv::blur( src, src, cv::Size(3,3) );
 //        cv::cvtColor(gray, gray, cv::COLOR_RGB2GRAY);
 //        cv::medianBlur(gray, gray, 3);
@@ -332,9 +304,11 @@ int main(int argc, char** argv)
 //    Dbrisk(src, cv::Mat(), keypoints0, descriptors0, false );
 //
     draw_keypoint(src, keypoints0);
+
     show_img("src_keypoint", src);
 
-    srcM = cv::imread("src_head.png");
+    srcM = cv::imread("src_head_cut.png");
+//    cv::cvtColor(srcM,srcM, cv::COLOR_BGR2GRAY);
 //    cv::resize(srcM,srcM,size,0.1,0.1);
     show_img("srcM", srcM);
 
@@ -342,28 +316,35 @@ int main(int argc, char** argv)
 //    cv::waitKey(0);
 
 
-
-
+    cv::VideoCapture cap1("test_video.mp4");
+    if (!cap1.isOpened())
+    {
+        printf("동영상 파일을 열수 없습니다. \n");
+    }
+    cap1.set(CV_CAP_PROP_FRAME_WIDTH,640);
+    cap1.set(CV_CAP_PROP_FRAME_HEIGHT,480);
 
 
     time(&start);
     while(true) {
-
+        t = clock();
         old_key = key;
         key = cv::waitKey(1);
         if (key == -1)
             key = old_key;
         printf("%d",key);
+
+
+/*
         color.readFrame(&color_img);
-
-
-        colorPix = new openni::RGB888Pixel[color_img.getHeight() * color_img.getWidth()];
+        auto colorPix = new openni::RGB888Pixel[color_img.getHeight() * color_img.getWidth()];
         memcpy(colorPix, color_img.getData(), color_img.getHeight() * color_img.getWidth() * sizeof(uint8_t) * 3);
         img1.data = (uchar *) colorPix;
+*/
+        cap1 >> img1;
 
-
-        cv::cvtColor(img1, gray, cv::COLOR_BGR2RGB);
-
+//        cv::cvtColor(img1, gray, cv::COLOR_BGR2RGB);
+        cv::resize(img1, gray, cv::Size(640, 480), cv::INTER_AREA);
 
         img_capture(gray, key);
 
@@ -398,10 +379,19 @@ int main(int argc, char** argv)
 
         }
         else if (key == (int) 'a') {
+
             printf("\n\nAPRILTAG_MATCHING\n");
-            pose = apriltag_matching(gray, td);
-            if (pose.t != nullptr)
-                printf("X: %lf \nY: %lf \nZ: %lf\n", pose.t->data[0]*1000,pose.t->data[1]*1000,pose.t->data[2]*1000);
+            apriltag_pose_t pose;
+            float tagsize = 3;
+            apriltag_matching(gray, td, tagsize, poses);
+            for(int i=0; i < poses.size(); i++) {
+                pose = poses[i];
+                if (pose.t != nullptr)
+                    printf("X: %8lf Y: %8lf Z: %8lf\t", pose.t->data[0] * 1000, pose.t->data[1] * 1000,
+                           pose.t->data[2] * 1000);
+            }
+
+            printf("\n\n");
         }
         else if (key == (int) 't') {
             printf("\n\nTEMPLATE MATCHING\n");
@@ -500,21 +490,23 @@ int main(int argc, char** argv)
                            cv::Point2f(clusters[good_roi].x + srcM.cols, clusters[good_roi].y + srcM.rows));
             show_img("Matching", gray);
         }*/
-
-
-        free(img1.data);
+//        free(img1.data);
         gray.release();
+        poses.clear();
         roi.clear();
         roi_info.clear();
         keypoints1.clear();
         matches.clear();
-
 //        free(gray.data);
 
         count_frame++;
         time(&end);
         ftime_diff = difftime(end,start);
         fps = count_frame/ftime_diff;
+        t = clock() - t;
+        FPS = (double)t/CLOCKS_PER_SEC;
+        printf("\nFPS:    %lf\n", 1/FPS);
+
         printf("\nControl loop Rate: \t\t\t\t\t  %lf\n\n\n\n", fps);
 
 
